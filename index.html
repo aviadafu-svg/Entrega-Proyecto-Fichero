@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirTortilla - Procesador Web</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #e74c3c;
+            --action-color: #3498db;
+            --success-color: #27ae60;
+            --bg-color: #f8f9fa;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 2rem;
+            color: #333;
+        }
+
+        .header { text-align: center; margin-bottom: 2rem; }
+        .header h1 { color: var(--primary-color); margin: 0; font-size: 2.5rem; }
+        .header span { color: var(--secondary-color); }
+
+        .panel {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 650px;
+            margin: 0 auto 2rem auto;
+        }
+
+        input[type="file"] { display: none; }
+
+        .custom-file-upload {
+            border: 2px dashed #bdc3c7;
+            display: inline-block;
+            padding: 12px 24px;
+            cursor: pointer;
+            border-radius: 5px;
+            font-weight: bold;
+            color: var(--primary-color);
+            transition: 0.3s;
+            margin-bottom: 15px;
+        }
+
+        .custom-file-upload:hover {
+            border-color: var(--secondary-color);
+            color: var(--secondary-color);
+        }
+
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .btn:hover:not(:disabled) { opacity: 0.9; }
+        .btn:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+
+        .btn-proceso { background-color: var(--success-color); }
+        .btn-proceso:hover:not(:disabled) { background-color: #219653; }
+
+        .btn-next { background-color: var(--action-color); display: none; width: 100%; margin-top: 15px; }
+        .active { background-color: var(--secondary-color); }
+
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: none;
+        }
+
+        table { width: 100%; border-collapse: collapse; }
+        th { background-color: var(--primary-color); color: white; padding: 15px; text-align: left; text-transform: uppercase; font-size: 0.9rem; }
+        td { padding: 12px 15px; border-bottom: 1px solid #eee; }
+        tbody tr:hover { background-color: #f1f2f6; }
+
+        .loc-badge { background-color: var(--secondary-color); color: white; padding: 4px 8px; border-radius: 15px; font-size: 0.85rem; font-weight: bold; }
+        .no-loc { color: #7f8c8d; font-style: italic; }
+        #statusMessage { font-weight: bold; color: var(--primary-color); margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Air<span>Tortilla</span></h1>
+    <p>Procesador Inteligente de Reservas (Versión Web)</p>
+</div>
+
+<div class="panel">
+    <p>1. Sube el archivo original (<b>reservas_mockaroo_iso.csv</b>).</p>
+    <label class="custom-file-upload">
+        <input type="file" id="csvFileInput" accept=".csv" />
+        <span id="fileNameDisplay">📂 Seleccionar CSV original</span>
+    </label>
+
+    <div id="statusMessage">Esperando archivo...</div>
+
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+
+    <button class="btn btn-proceso" id="btnProcesar" disabled>2. Generar Localizadores</button>
+    <br><br>
+    <button class="btn" id="btnModoTotal" disabled>3. Ver Todo</button>
+    <button class="btn" id="btnModoLinea" disabled>3. Ver Línea a Línea</button>
+    <button class="btn btn-next" id="btnNext">Siguiente Reserva ➔</button>
+</div>
+
+<div class="table-container" id="tableContainer">
+    <table>
+        <thead>
+        <tr>
+            <th>Destino</th>
+            <th>Origen</th>
+            <th>Nombre Pasajero</th>
+            <th>Fecha</th>
+            <th>Localizador</th>
+        </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+</div>
+
+<script>
+    let reservasBrutas = [];
+    let reservasProcesadas = [];
+    let indiceActual = 0;
+
+    // 1. CARGAR EL ARCHIVO CRUDO
+    document.getElementById('csvFileInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        document.getElementById('fileNameDisplay').textContent = `📄 ${file.name}`;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            let lineas = e.target.result.split('\n').filter(linea => linea.trim() !== '');
+
+            // Limpiar la cabecera si existe
+            if (lineas.length > 0 && lineas[0].toLowerCase().includes("destino")) {
+                lineas.shift();
+            }
+
+            // Mapear los datos a objetos JavaScript
+            reservasBrutas = lineas.map(linea => {
+                const cols = linea.split(',');
+                return {
+                    destino: cols[0] ? cols[0].trim() : '',
+                    origen: cols[1] ? cols[1].trim() : '',
+                    nombre: cols[2] ? cols[2].trim() : '',
+                    fecha: cols[3] ? cols[3].trim() : '',
+                    loc: '-'
+                };
+            });
+
+            document.getElementById('statusMessage').textContent = `¡Archivo cargado! (${reservasBrutas.length} reservas encontradas). Pulsa Generar Localizadores.`;
+            document.getElementById('statusMessage').style.color = "var(--primary-color)";
+
+            // Activar botón de proceso
+            document.getElementById('btnProcesar').disabled = false;
+            document.getElementById('btnModoTotal').disabled = true;
+            document.getElementById('btnModoLinea').disabled = true;
+            document.getElementById('tableContainer').style.display = 'none';
+        };
+        reader.readAsText(file);
+    });
+
+    // 2. LÓGICA DE PROCESAMIENTO (IDÉNTICA A TU JAVA)
+    document.getElementById('btnProcesar').addEventListener('click', function() {
+        let contador = 1;
+        // Copiamos los datos para procesarlos
+        reservasProcesadas = JSON.parse(JSON.stringify(reservasBrutas));
+
+        // Algoritmo buscador de coincidencias
+        for (let i = 0; i < reservasProcesadas.length; i++) {
+            if (reservasProcesadas[i].loc !== '-') continue;
+
+            let hayCoincidencia = false;
+            let loc = "LOC-" + String(contador).padStart(3, '0');
+
+            for (let j = i + 1; j < reservasProcesadas.length; j++) {
+                if (reservasProcesadas[i].nombre === reservasProcesadas[j].nombre &&
+                    reservasProcesadas[i].origen === reservasProcesadas[j].origen &&
+                    reservasProcesadas[i].destino === reservasProcesadas[j].destino) {
+
+                    reservasProcesadas[j].loc = loc;
+                    hayCoincidencia = true;
+                }
+            }
+
+            if (hayCoincidencia) {
+                reservasProcesadas[i].loc = loc;
+                contador++;
+            }
+        }
+
+        document.getElementById('statusMessage').textContent = `¡Cálculo terminado! Elige una opción de visualización.`;
+        document.getElementById('statusMessage').style.color = "var(--success-color)";
+
+        // Habilitar visualización
+        document.getElementById('btnProcesar').disabled = true;
+        document.getElementById('btnModoTotal').disabled = false;
+        document.getElementById('btnModoLinea').disabled = false;
+    });
+
+    // 3. OPCIONES DE VISUALIZACIÓN
+    document.getElementById('btnModoTotal').addEventListener('click', function() {
+        this.classList.add('active');
+        document.getElementById('btnModoLinea').classList.remove('active');
+        document.getElementById('btnNext').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'block';
+
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+
+        reservasProcesadas.forEach(r => {
+            tbody.appendChild(crearFilaHTML(r));
+        });
+    });
+
+    document.getElementById('btnModoLinea').addEventListener('click', function() {
+        this.classList.add('active');
+        document.getElementById('btnModoTotal').classList.remove('active');
+        document.getElementById('btnNext').style.display = 'block';
+        document.getElementById('tableContainer').style.display = 'block';
+
+        document.getElementById('tableBody').innerHTML = '';
+        indiceActual = 0;
+        avanzarLinea();
+    });
+
+    document.getElementById('btnNext').addEventListener('click', avanzarLinea);
+
+    function crearFilaHTML(r) {
+        const tr = document.createElement('tr');
+
+        [r.destino, r.origen, r.nombre, r.fecha].forEach(valor => {
+            const td = document.createElement('td');
+            td.textContent = valor;
+            tr.appendChild(td);
+        });
+
+        const tdLoc = document.createElement('td');
+        if (r.loc !== '-') {
+            tdLoc.innerHTML = `<span class="loc-badge">${r.loc}</span>`;
+        } else {
+            tdLoc.innerHTML = `<span class="no-loc">Sin asignar</span>`;
+        }
+        tr.appendChild(tdLoc);
+
+        return tr;
+    }
+
+    function avanzarLinea() {
+        if (indiceActual < reservasProcesadas.length) {
+            const tbody = document.getElementById('tableBody');
+            const tr = crearFilaHTML(reservasProcesadas[indiceActual]);
+            tbody.appendChild(tr);
+            tr.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            indiceActual++;
+        }
+        if (indiceActual >= reservasProcesadas.length) {
+            document.getElementById('btnNext').style.display = 'none';
+        }
+    }
+</script>
+</body>
+</html>
