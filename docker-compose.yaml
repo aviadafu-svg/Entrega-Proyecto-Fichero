@@ -1,0 +1,12 @@
+services:
+  airtortilla:
+    build: .
+    container_name: airtortilla-app
+    ports:
+      - "7000:7000"
+    volumes:
+      - db-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  db-data:

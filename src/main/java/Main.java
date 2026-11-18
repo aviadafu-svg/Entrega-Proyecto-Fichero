@@ -1,58 +1,76 @@
-import java.util.Scanner;
+import io.javalin.Javalin;
+import io.javalin.http.Context;
+
+import java.util.Map;
 
 public class Main {
     public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        GestorReservas gestor = new GestorReservas();
-        String ficheroEntrada = "reservas_mockaroo_iso.csv";
-        boolean salir = false;
 
-        System.out.println("==================================================");
-        System.out.println("   AirTortilla - Gestión de Reservas");
-        System.out.println("==================================================");
+        DatabaseSetup.inicializarBD();
 
-        while (!salir) {
-            System.out.println("\nMENÚ:");
-            System.out.println("1. Procesar reservas y generar fichero");
-            System.out.println("2. Consultar fichero generado (modo completo)");
-            System.out.println("3. Consultar fichero generado (línea a línea)");
-            System.out.println("4. Salir");
-            System.out.print("\nElige una opción: ");
+        Javalin app = Javalin.create(config -> {
+            config.staticFiles.add("/public");
+        }).start(7000);
 
-            String opcion = sc.nextLine().trim();
-
-            switch (opcion) {
-                case "1":
-                    gestor.leerReservas(ficheroEntrada);
-                    if (gestor.hayReservas()) {
-                        gestor.generarLocalizadores();
-                        // Llama al método que genera un solo archivo sin filtrar
-                        gestor.generarFicheroUnico();
-                        System.out.println("\n¡Proceso terminado!");
-                    } else {
-                        System.out.println("\nNo se pudieron procesar las reservas.");
-                    }
-                    break;
+        System.out.println("AirTortilla corriendo en http://localhost:7000");
 
 
-                case "2":
-                    gestor.consultarCompleto();
-                    break;
+        app.post("/api/login", ctx -> {
+            String username = ctx.formParam("username");
+            String password = ctx.formParam("password");
 
-                case "3":
-                    gestor.consultarLineaALinea(sc);
-                    break;
-
-                case "4":
-                    System.out.println("¡Hasta luego!");
-                    salir = true;
-                    break;
-
-                default:
-                    System.out.println("Opción no válida. Inténtalo de nuevo.");
-                    break;
+            String rol = AuthService.login(username, password);
+            if (rol != null) {
+                ctx.json(Map.of("ok", true, "username", username, "rol", rol));
+            } else {
+                ctx.status(401).json(Map.of("ok", false, "mensaje", "Credenciales incorrectas"));
             }
-        }
-        sc.close();
+        });
+
+        app.post("/api/reservas/procesar", ctx -> {
+            String usuario = ctx.queryParam("usuario");
+
+            GestorReservas gestor = new GestorReservas();
+            gestor.leerReservas("reservas_mockaroo_iso.csv");
+
+            if (gestor.hayReservas()) {
+                gestor.generarLocalizadores();
+                gestor.migrarReservasABD();
+                AuditoriaService.registrar(usuario, "MIGRAR_CSV", "Migración CSV a BD completada");
+                ctx.json(Map.of("ok", true, "mensaje", "Reservas procesadas y migradas a BD"));
+            } else {
+                ctx.status(500).json(Map.of("ok", false, "mensaje", "No se pudieron leer las reservas"));
+            }
+        });
+
+        app.get("/api/reservas", ctx -> {
+            String usuario = ctx.queryParam("usuario");
+            AuditoriaService.registrar(usuario, "CONSULTA_RESERVAS", "Consulta de reservas desde BD");
+            ctx.json(GestorReservas.obtenerReservasDesdeBD());
+        });
+
+        app.post("/api/usuarios", ctx -> {
+            String adminActual = ctx.formParam("adminActual");
+            String username = ctx.formParam("username");
+            String password = ctx.formParam("password");
+            String rol = ctx.formParam("rol");
+
+            boolean ok = UsuarioService.crearUsuario(username, password, rol, adminActual);
+            if (ok) {
+                ctx.json(Map.of("ok", true, "mensaje", "Usuario '" + username + "' creado"));
+            } else {
+                ctx.status(400).json(Map.of("ok", false, "mensaje", "Error al crear usuario (¿ya existe?)"));
+            }
+        });
+
+        app.get("/api/usuarios", ctx -> {
+            ctx.json(UsuarioService.listarUsuarios());
+        });
+
+        app.get("/api/auditoria", ctx -> {
+            String usuario = ctx.queryParam("usuario");
+            AuditoriaService.registrar(usuario, "CONSULTA_AUDITORIA", "Consulta del log de auditoría");
+            ctx.json(AuditoriaService.obtenerTodas());
+        });
     }
 }

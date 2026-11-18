@@ -1,7 +1,13 @@
 import java.io.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Scanner;
-
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 public class GestorReservas {
     private ArrayList<Reserva> reservas = new ArrayList<>();
     private String rutaFicheroGenerado = null;
@@ -10,7 +16,13 @@ public class GestorReservas {
         reservas.clear();
         try (BufferedReader br = new BufferedReader(new FileReader(nombreFichero))) {
             String linea;
+            boolean primeraLinea = true;
             while ((linea = br.readLine()) != null) {
+                if (primeraLinea && linea.toLowerCase().contains("destino")) {
+                    primeraLinea = false;
+                    continue;
+                }
+                primeraLinea = false;
                 String[] partes = linea.split(",");
                 if (partes.length >= 4) {
                     reservas.add(new Reserva(partes[0].trim(), partes[1].trim(), partes[2].trim(), partes[3].trim()));
@@ -103,6 +115,51 @@ public class GestorReservas {
         } catch (IOException e) {
             System.out.println("Error al leer el fichero.");
         }
+    }
+
+    public void migrarReservasABD() {
+        if (reservas.isEmpty()) return;
+        String sql = "INSERT INTO reservas (destino, origen, nombre_pasajero, fecha, localizador) VALUES (?, ?, ?, ?, ?)";
+        try (Connection conn = ConexionBD.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            conn.createStatement().execute("DELETE FROM reservas");
+            int count = 0;
+            for (Reserva r : reservas) {
+                ps.setString(1, r.getDestino());
+                ps.setString(2, r.getOrigen());
+                ps.setString(3, r.getNombre());
+                ps.setString(4, r.getFecha());
+                ps.setString(5, r.getLocalizador());
+                ps.addBatch();
+                count++;
+                if (count % 100 == 0) ps.executeBatch();
+            }
+            ps.executeBatch();
+            System.out.println("Migradas " + count + " reservas a BD.");
+        } catch (java.sql.SQLException e) {
+            System.out.println("Error migración: " + e.getMessage());
+        }
+    }
+    public static List<Map<String, String>> obtenerReservasDesdeBD() {
+        List<Map<String, String>> lista = new java.util.ArrayList<>();
+        String sql = "SELECT * FROM reservas";
+        try (Connection conn = ConexionBD.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                Map<String, String> r = new HashMap<>();
+                r.put("id", String.valueOf(rs.getInt("id")));
+                r.put("destino", rs.getString("destino"));
+                r.put("origen", rs.getString("origen"));
+                r.put("nombre", rs.getString("nombre_pasajero"));
+                r.put("fecha", rs.getString("fecha"));
+                r.put("localizador", rs.getString("localizador"));
+                lista.add(r);
+            }
+        } catch (java.sql.SQLException e) {
+            System.out.println("Error consulta BD: " + e.getMessage());
+        }
+        return lista;
     }
 
     public boolean hayReservas() {

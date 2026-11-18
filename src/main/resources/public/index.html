@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirTortilla - Dashboard</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #e74c3c;
+            --action: #3498db;
+            --success: #27ae60;
+            --bg: #f8f9fa;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); }
+
+        /* ===== NAVBAR ===== */
+        .navbar {
+            background: var(--primary); color: white;
+            padding: 1rem 2rem; display: flex;
+            justify-content: space-between; align-items: center;
+        }
+        .navbar h1 { font-size: 1.6rem; }
+        .navbar h1 span { color: var(--accent); }
+        .navbar .user-info { display: flex; align-items: center; gap: 1rem; }
+        .navbar .badge {
+            background: var(--accent); padding: 4px 12px;
+            border-radius: 15px; font-size: 0.8rem; font-weight: bold;
+        }
+        .btn-logout {
+            background: none; border: 2px solid white; color: white;
+            padding: 6px 16px; border-radius: 6px; cursor: pointer;
+            font-weight: bold; transition: 0.3s;
+        }
+        .btn-logout:hover { background: white; color: var(--primary); }
+
+        /* ===== TABS ===== */
+        .tabs {
+            display: flex; background: white;
+            border-bottom: 3px solid var(--primary);
+            padding: 0 2rem;
+        }
+        .tab {
+            padding: 14px 24px; cursor: pointer; font-weight: bold;
+            color: #7f8c8d; border-bottom: 3px solid transparent;
+            margin-bottom: -3px; transition: 0.3s;
+        }
+        .tab:hover { color: var(--primary); }
+        .tab.active { color: var(--primary); border-bottom-color: var(--accent); }
+        .tab-content { display: none; padding: 2rem; }
+        .tab-content.active { display: block; }
+
+        /* ===== GENERAL STYLES ===== */
+        .card {
+            background: white; border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+            padding: 1.5rem; margin-bottom: 1.5rem;
+        }
+        .card h3 { color: var(--primary); margin-bottom: 1rem; }
+        .btn {
+            padding: 10px 22px; border: none; border-radius: 6px;
+            color: white; font-weight: bold; cursor: pointer;
+            transition: 0.3s; font-size: 0.95rem;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn-primary { background: var(--primary); }
+        .btn-success { background: var(--success); }
+        .btn-action { background: var(--action); }
+        .btn-danger { background: var(--accent); }
+        .btn:disabled { background: #bdc3c7; cursor: not-allowed; }
+
+        /* ===== TABLES ===== */
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th {
+            background: var(--primary); color: white;
+            padding: 12px 15px; text-align: left;
+            font-size: 0.85rem; text-transform: uppercase;
+        }
+        td { padding: 10px 15px; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+        tbody tr:hover { background: #f1f2f6; }
+        .loc-badge {
+            background: var(--accent); color: white;
+            padding: 3px 10px; border-radius: 15px;
+            font-size: 0.8rem; font-weight: bold;
+        }
+        .no-loc { color: #bdc3c7; font-style: italic; }
+
+        /* ===== FORMS ===== */
+        .form-row { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+        .form-row input, .form-row select {
+            padding: 10px 14px; border: 2px solid #ddd;
+            border-radius: 6px; font-size: 0.95rem; flex: 1; min-width: 150px;
+        }
+        .form-row input:focus, .form-row select:focus {
+            outline: none; border-color: var(--primary);
+        }
+
+        /* ===== STATUS ===== */
+        .status-msg {
+            padding: 12px 18px; border-radius: 8px; margin-bottom: 1rem;
+            font-weight: bold; display: none;
+        }
+        .status-ok { background: #d4edda; color: #155724; display: block; }
+        .status-err { background: #f8d7da; color: #721c24; display: block; }
+
+        /* ===== COUNTER ===== */
+        .counter {
+            font-size: 0.9rem; color: #7f8c8d; margin-top: 0.5rem;
+        }
+
+        /* ===== RESPONSIVE TABLE ===== */
+        .table-scroll { overflow-x: auto; }
+    </style>
+</head>
+<body>
+
+<!-- ===== NAVBAR ===== -->
+<div class="navbar">
+    <h1>✈️ Air<span>Tortilla</span></h1>
+    <div class="user-info">
+        <span>👤 <b id="navUser">-</b></span>
+        <span class="badge" id="navRol">-</span>
+        <button class="btn-logout" onclick="logout()">Cerrar Sesión</button>
+    </div>
+</div>
+
+<!-- ===== TABS ===== -->
+<div class="tabs">
+    <div class="tab active" onclick="switchTab('reservas')">📋 Reservas</div>
+    <div class="tab" onclick="switchTab('usuarios')" id="tabUsuarios" style="display:none;">👥 Usuarios</div>
+    <div class="tab" onclick="switchTab('auditoria')" id="tabAuditoria" style="display:none;">📜 Auditoría</div>
+</div>
+
+<!-- ===== TAB: RESERVAS ===== -->
+<div class="tab-content active" id="content-reservas">
+    <div class="card">
+        <h3>⚙️ Procesar Reservas</h3>
+        <p style="margin-bottom:1rem; color:#7f8c8d;">
+            Lee el CSV original, genera localizadores y migra todo a la Base de Datos.
+        </p>
+        <button class="btn btn-success" onclick="procesarReservas()">
+            🚀 Procesar CSV y Migrar a BD
+        </button>
+        <div class="status-msg" id="statusProcesar"></div>
+    </div>
+
+    <div class="card">
+        <h3>🔍 Consultar Reservas (desde BD)</h3>
+        <div style="display:flex; gap:10px; margin-bottom:1rem;">
+            <button class="btn btn-primary" onclick="cargarReservas('todo')">📊 Ver Todo</button>
+            <button class="btn btn-action" onclick="cargarReservas('linea')">📄 Línea a Línea</button>
+            <button class="btn btn-action" id="btnSiguiente" onclick="siguienteLinea()" style="display:none;">
+                Siguiente ➔
+            </button>
+        </div>
+        <div class="counter" id="counterReservas"></div>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                <tr>
+                    <th>ID</th><th>Destino</th><th>Origen</th>
+                    <th>Pasajero</th><th>Fecha</th><th>Localizador</th>
+                </tr>
+                </thead>
+                <tbody id="tbodyReservas"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ===== TAB: USUARIOS ===== -->
+<div class="tab-content" id="content-usuarios">
+    <div class="card">
+        <h3>➕ Dar de Alta Nuevo Usuario</h3>
+        <div class="form-row">
+            <input type="text" id="nuevoUser" placeholder="Username">
+            <input type="password" id="nuevoPass" placeholder="Contraseña">
+            <select id="nuevoRol">
+                <option value="EMPLEADO">EMPLEADO</option>
+                <option value="ADMIN">ADMIN</option>
+            </select>
+            <button class="btn btn-success" onclick="crearUsuario()">Crear</button>
+        </div>
+        <div class="status-msg" id="statusUsuario"></div>
+    </div>
+
+    <div class="card">
+        <h3>📋 Usuarios Registrados</h3>
+        <button class="btn btn-primary" onclick="cargarUsuarios()" style="margin-bottom:1rem;">
+            🔄 Actualizar Lista
+        </button>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                <tr>
+                    <th>ID</th><th>Username</th><th>Rol</th>
+                    <th>Activo</th><th>Fecha Creación</th>
+                </tr>
+                </thead>
+                <tbody id="tbodyUsuarios"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ===== TAB: AUDITORÍA ===== -->
+<div class="tab-content" id="content-auditoria">
+    <div class="card">
+        <h3>📜 Registro de Auditoría</h3>
+        <p style="margin-bottom:1rem; color:#7f8c8d;">
+            Trazabilidad de todas las acciones realizadas en el sistema.
+        </p>
+        <button class="btn btn-primary" onclick="cargarAuditoria()" style="margin-bottom:1rem;">
+            🔄 Actualizar
+        </button>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                <tr>
+                    <th>ID</th><th>Usuario</th><th>Acción</th>
+                    <th>Detalle</th><th>Fecha/Hora</th>
+                </tr>
+                </thead>
+                <tbody id="tbodyAuditoria"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ===================== SESIÓN =====================
+    const usuario = localStorage.getItem('usuario');
+    const rol = localStorage.getItem('rol');
+
+    if (!usuario) {
+        window.location.href = '/login.html';
+    }
+
+    document.getElementById('navUser').textContent = usuario;
+    document.getElementById('navRol').textContent = rol;
+
+    // Mostrar tabs de admin
+    if (rol === 'ADMIN') {
+        document.getElementById('tabUsuarios').style.display = 'block';
+        document.getElementById('tabAuditoria').style.display = 'block';
+    }
+
+    function logout() {
+        localStorage.clear();
+        window.location.href = '/login.html';
+    }
+
+    // ===================== TABS =====================
+    function switchTab(name) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        event.target.classList.add('active');
+        document.getElementById('content-' + name).classList.add('active');
+    }
+
+    // ===================== RESERVAS =====================
+    let reservasData = [];
+    let indiceLinea = 0;
+
+    async function procesarReservas() {
+        const st = document.getElementById('statusProcesar');
+        st.className = 'status-msg';
+        st.textContent = '⏳ Procesando...';
+        st.classList.add('status-ok');
+
+        const res = await fetch(`/api/reservas/procesar?usuario=${encodeURIComponent(usuario)}`, {
+            method: 'POST'
+        });
+        const data = await res.json();
+
+        st.className = 'status-msg';
+        if (data.ok) {
+            st.textContent = '✅ ' + data.mensaje;
+            st.classList.add('status-ok');
+        } else {
+            st.textContent = '❌ ' + data.mensaje;
+            st.classList.add('status-err');
+        }
+    }
+
+    async function cargarReservas(modo) {
+        const res = await fetch(`/api/reservas?usuario=${encodeURIComponent(usuario)}`);
+        reservasData = await res.json();
+
+        const tbody = document.getElementById('tbodyReservas');
+        tbody.innerHTML = '';
+
+        document.getElementById('btnSiguiente').style.display = 'none';
+
+        if (modo === 'todo') {
+            reservasData.forEach(r => tbody.appendChild(crearFilaReserva(r)));
+            document.getElementById('counterReservas').textContent =
+                `Mostrando ${reservasData.length} reservas`;
+        } else {
+            indiceLinea = 0;
+            if (reservasData.length > 0) {
+                tbody.appendChild(crearFilaReserva(reservasData[0]));
+                indiceLinea = 1;
+                document.getElementById('btnSiguiente').style.display = 'inline-block';
+                document.getElementById('counterReservas').textContent =
+                    `Línea ${indiceLinea} de ${reservasData.length}`;
+            }
+        }
+    }
+
+    function siguienteLinea() {
+        if (indiceLinea < reservasData.length) {
+            const tbody = document.getElementById('tbodyReservas');
+            const tr = crearFilaReserva(reservasData[indiceLinea]);
+            tbody.appendChild(tr);
+            tr.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            indiceLinea++;
+            document.getElementById('counterReservas').textContent =
+                `Línea ${indiceLinea} de ${reservasData.length}`;
+        }
+        if (indiceLinea >= reservasData.length) {
+            document.getElementById('btnSiguiente').style.display = 'none';
+        }
+    }
+
+    function crearFilaReserva(r) {
+        const tr = document.createElement('tr');
+        const loc = (r.localizador && r.localizador !== '-')
+            ? `<span class="loc-badge">${r.localizador}</span>`
+            : `<span class="no-loc">Sin asignar</span>`;
+
+        tr.innerHTML = `
+            <td>${r.id}</td>
+            <td>${r.destino}</td>
+            <td>${r.origen}</td>
+            <td>${r.nombre}</td>
+            <td>${r.fecha}</td>
+            <td>${loc}</td>
+        `;
+        return tr;
+    }
+
+    // ===================== USUARIOS =====================
+    async function crearUsuario() {
+        const st = document.getElementById('statusUsuario');
+        const username = document.getElementById('nuevoUser').value.trim();
+        const password = document.getElementById('nuevoPass').value.trim();
+        const nuevoRol = document.getElementById('nuevoRol').value;
+
+        if (!username || !password) {
+            st.className = 'status-msg status-err';
+            st.textContent = '❌ Rellena todos los campos';
+            return;
+        }
+
+        const res = await fetch('/api/usuarios', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `adminActual=${encodeURIComponent(usuario)}&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&rol=${encodeURIComponent(nuevoRol)}`
+        });
+        const data = await res.json();
+
+        st.className = 'status-msg';
+        if (data.ok) {
+            st.textContent = '✅ ' + data.mensaje;
+            st.classList.add('status-ok');
+            document.getElementById('nuevoUser').value = '';
+            document.getElementById('nuevoPass').value = '';
+            cargarUsuarios();
+        } else {
+            st.textContent = '❌ ' + data.mensaje;
+            st.classList.add('status-err');
+        }
+    }
+
+    async function cargarUsuarios() {
+        const res = await fetch('/api/usuarios');
+        const usuarios = await res.json();
+        const tbody = document.getElementById('tbodyUsuarios');
+        tbody.innerHTML = '';
+
+        usuarios.forEach(u => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${u.id}</td>
+                <td>${u.username}</td>
+                <td><span class="loc-badge">${u.rol}</span></td>
+                <td>${u.activo === 'true' ? '✅' : '❌'}</td>
+                <td>${u.fechaCreacion}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // ===================== AUDITORÍA =====================
+    async function cargarAuditoria() {
+        const res = await fetch(`/api/auditoria?usuario=${encodeURIComponent(usuario)}`);
+        const registros = await res.json();
+        const tbody = document.getElementById('tbodyAuditoria');
+        tbody.innerHTML = '';
+
+        registros.forEach(a => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${a.id}</td>
+                <td>${a.usuario}</td>
+                <td><b>${a.accion}</b></td>
+                <td>${a.detalle}</td>
+                <td>${a.fechaHora}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+</script>
+</body>
+</html>
