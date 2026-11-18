@@ -170,3 +170,42 @@ Una vez levantado el servidor, abre en el navegador:
   - **Contraseña:** `admin123`
 
 Desde la cuenta `admin` podrás migrar las 1000 reservas del CSV a la base de datos, consultar los registros (modo completo o línea a línea), dar de alta nuevos empleados y revisar toda la actividad en la pestaña de **Auditoría**.
+
+### 📊 Diagrama de Flujo (Fase 1)
+
+```mermaid
+flowchart TD
+    Inicio(["Inicio - AirTortilla Fase 1"]) --> Menu["Mostrar Menú Principal"]
+    Menu --> Opt{"Opción elegida"}
+
+    %% Opción 1
+    Opt -->|"1. Procesar"| Leer["Leer reservas_mockaroo_iso.csv"]
+    Leer --> HayRes{"¿Hay reservas?"}
+    HayRes -->|No| ErrRes["Mostrar error de lectura"]
+    ErrRes --> Menu
+    HayRes -->|Sí| GenLoc["Generar localizadores (LOC-001...) si coinciden pasajero, origen y destino"]
+    GenLoc --> GenFile["Crear salida/AirTortilla_DESTINO_FECHA.csv"]
+    GenFile --> Ok1["Mostrar: Proceso terminado"]
+    Ok1 --> Menu
+
+    %% Opción 2
+    Opt -->|"2. Consulta completa"| CheckF2{"¿Existe fichero generado?"}
+    CheckF2 -->|No| Warn2["Avisar: ejecuta primero Opción 1"]
+    Warn2 --> Menu
+    CheckF2 -->|Sí| ShowAll["Leer y mostrar todo el CSV generado"]
+    ShowAll --> Menu
+
+    %% Opción 3
+    Opt -->|"3. Línea a línea"| CheckF3{"¿Existe fichero generado?"}
+    CheckF3 -->|No| Warn3["Avisar: ejecuta primero Opción 1"]
+    Warn3 --> Menu
+    CheckF3 -->|Sí| ShowLine["Mostrar línea y esperar tecla Enter"]
+    ShowLine --> More{"¿Quedan más líneas?"}
+    More -->|Sí| ShowLine
+    More -->|No| Menu
+
+    %% Opción 4 y otra
+    Opt -->|"4. Salir"| Fin(["Cerrar Scanner y Fin"])
+    Opt -->|Otra| Inv["Mostrar: Opción no válida"]
+    Inv --> Menu
+```
